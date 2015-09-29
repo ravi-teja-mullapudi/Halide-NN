@@ -3,12 +3,15 @@ using namespace Halide;
 class Layer {
     public:
         Layer(Layer* in) {
-            // Get the halide function that computes values
-            // of the input layer
-            assert(in->forward.defined());
+            // The first layer in the pipeline does not have an input layer
+            if (in) {
+                // Get the halide function that computes values
+                // of the input layer        
+                assert(in->forward.defined());
 
-            // Record the input layer
-            in_layer = in;
+                // Record the input layer
+                in_layer = in;
+            }
         }
         // Layer that serves as an input to the current layer
         Layer* in_layer;
@@ -398,9 +401,9 @@ class Convolutional: public Layer {
                 // intialize to zero
                 dW(x, y, z, n) = cast(dout.output_types()[0], 0);
                 dW(x, y, z, n) += dout(r1.x, r1.y, n, r1.z) *
-                    f_in_bound(r1.x*stride + x - pad,
-                            r1.y*stride + y - pad,
-                            z, r1.z);
+                                       f_in_bound(r1.x*stride + x - pad,
+                                                  r1.y*stride + y - pad,
+                                                  z, r1.z);
 
                 f_param_grads.push_back(dW);
 
@@ -456,8 +459,7 @@ class MaxPooling: public Layer {
         // stride at which the pooling is applied
         int p_h, p_w, stride;
         Var x, y, z, n;
-        MaxPooling(int _p_w, int _p_h, int _stride,
-                Layer* in) : Layer(in) {
+        MaxPooling(int _p_w, int _p_h, int _stride, Layer* in) : Layer(in) {
             assert(in_layer->out_dims() == 4);
 
             num_samples = in_layer->out_dim_size(3);
@@ -475,8 +477,8 @@ class MaxPooling: public Layer {
             Func in_f = in_layer->forward;
             RDom r(0, p_w, 0, p_h);
             forward(x, y, z, n) = maximum(in_f(x * stride + r.x,
-                        y * stride + r.y,
-                        z, n));
+                                               y * stride + r.y,
+                                               z, n));
 
         }
 
@@ -487,17 +489,17 @@ class MaxPooling: public Layer {
                 Func pool_argmax;
                 RDom r1(0, p_w, 0, p_h);
                 pool_argmax(x, y, z, n) = argmax(in_f(x * stride + r1.x,
-                            y * stride + r1.y,
-                            z, n));
+                                                      y * stride + r1.y,
+                                                      z, n));
 
                 pool_argmax.compute_root();
                 RDom r2(0, this->out_dim_size(0), 0, this->out_dim_size(1));
                 f_in_grad(x, y, z, n) = cast(dout.output_types()[0], 0);
 
                 Expr x_bin = clamp(r2.x * stride +
-                        pool_argmax(r2.x, r2.y, z, n)[0], 0, in_w);
+                                   pool_argmax(r2.x, r2.y, z, n)[0], 0, in_w);
                 Expr y_bin = clamp(r2.y * stride +
-                        pool_argmax(r2.x, r2.y, z, n)[1], 0, in_h);
+                                   pool_argmax(r2.x, r2.y, z, n)[1], 0, in_h);
 
                 f_in_grad(x_bin, y_bin, z, n) += dout(r2.x, r2.y, z, n);
                 in_layer->back_propagate(f_in_grad);
@@ -524,10 +526,15 @@ class MaxPooling: public Layer {
 class DataLayer: public Layer {
     public:
         int in_w, in_h, in_ch, num_samples;
-        DataLayer(int _in_w, int _in_h, int _in_ch, int _num_samples) :
-            Layer(0) {
+        Var x, y, z, n;
+        DataLayer(int _in_w, int _in_h, int _in_ch, int _num_samples, 
+                  Image<float> data) : Layer(0) {
 
+                // Define forward
+                forward(x, y, z, n) = data(x, y, z, n);
         }
+        // Nothing to propagate
+        void back_propagate(Func dout) { assert(dout.defined()); return; }
 
         int out_dims() { return 4; }
 
@@ -549,8 +556,57 @@ class DataLayer: public Layer {
 
 class Flatten: public Layer {
     public:
-        Flatten(Layer *in) :
-            Layer(in) {
+        Var x, y, z, n;
+        int out_width;
+        int num_samples;
+        Flatten(Layer *in) : Layer(in) {
+            assert(in->out_dims() >= 2 && in->out_dims() <= 4);
+            num_samples = in_layer->out_dim_size(in_layer->out_dims() - 1);
+            // Define forward
+            if (in_layer->out_dims() == 2) {
+                out_width = in_layer->out_dim_size(0);
+                forward(x, n) = in_layer->forward(x, n);  
+            } else if (in_layer->out_dims() == 3) {
+                int w = in_layer->out_dim_size(0); 
+                int h = in_layer->out_dim_size(1);
+                out_width = w * h;
+                forward(x, n) = in_layer->forward(x%w, (x/w), n);
+            } else if (in_layer->out_dims() == 4) {
+                int w = in_layer->out_dim_size(0); 
+                int h = in_layer->out_dim_size(1);
+                int c = in_layer->out_dim_size(2);
+                out_width = w * h * c;
+                forward(x, n) = in_layer->forward(x%w, (x/w)%h, x/(w*h), n);
+            }
+
         }
 
+        void back_propagate(Func dout) {
+            assert(dout.defined());
+            if(!f_in_grad.defined()) {
+                if(in_layer->out_dims() == 2) 
+                    f_in_grad(x, n) = dout(x, n);
+                else if(in_layer->out_dims() == 3) {
+                    int w = in_layer->out_dim_size(0); 
+                    f_in_grad(x, y, n) = dout(y*w + x, n);
+                } else if (in_layer->out_dims() == 4) {
+                    int w = in_layer->out_dim_size(0); 
+                    int h = in_layer->out_dim_size(1);
+                    f_in_grad(x, y, z, n) = dout(z*w*h + y*w + x, n);
+                }
+                in_layer->back_propagate(f_in_grad);
+            }
+        }
+
+        int out_dims() { return 2; }
+
+        int out_dim_size( int i) {
+            assert(i < 2);
+            int size = 0;
+            if (i == 0)
+                size = out_width;
+            else if (i == 1)
+                size = num_samples;
+            return size;
+        }
 };

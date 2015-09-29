@@ -15,6 +15,22 @@ int main(int argc, char **argv) {
     //class Convolutional conv(N_f, f_w, f_h, pad, stride);
 
 
+    Image<float> I1(5, 5, 1, 1);
+    for (int i = 0; i < 5; i++)
+        for (int j = 0; j < 5; j++)
+            I1(i, j, 0, 0) = i + j;
+
+    class DataLayer data(5, 5, 1, 1, I1);
+    data.forward.realize(5, 5, 1, 1);
+
+    Image<float> I2;
+    I2 = I1;
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++)
+            printf("%f ", I2(i, j, 0, 0));
+        printf("\n");
+    }
+
     timeval t1, t2;
 
     Func gradient, blah;
