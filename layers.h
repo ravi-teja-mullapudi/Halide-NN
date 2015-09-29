@@ -520,3 +520,37 @@ class MaxPooling: public Layer {
             return size;
         }
 };
+
+class DataLayer: public Layer {
+    public:
+        int in_w, in_h, in_ch, num_samples;
+        DataLayer(int _in_w, int _in_h, int _in_ch, int _num_samples) :
+            Layer(0) {
+
+        }
+
+        int out_dims() { return 4; }
+
+        int out_dim_size( int i) {
+            assert(i < 4);
+            int size = 0;
+            if (i == 0)
+                size = in_w;
+            else if (i == 1)
+                size = in_h;
+            else if (i == 2)
+                size = in_ch;
+            else if (i == 3)
+                size = num_samples;
+            return size;
+        }
+
+};
+
+class Flatten: public Layer {
+    public:
+        Flatten(Layer *in) :
+            Layer(in) {
+        }
+
+};
