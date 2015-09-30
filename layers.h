@@ -363,9 +363,9 @@ class Convolutional: public Layer {
 
             // Boundary condition
             f_in_bound = BoundaryConditions::constant_exterior(
-                    in_layer->forward, 0,
-                    0, in_w,
-                    0, in_h);
+                                    in_layer->forward, 0,
+                                    0, in_w,
+                                    0, in_h);
 
             // Create parameters
             Image<float> W(f_w, f_h, in_ch, num_f), b(num_f);
@@ -376,12 +376,17 @@ class Convolutional: public Layer {
             // intialize to bias
             forward(x, y, z, n) = b(z);
             forward(x, y, z, n) += W(r.x, r.y, r.z, z) *
-                f_in_bound(x*stride + r.x - pad,
-                        y*stride + r.y - pad,
-                        r.z, n);
+                                   f_in_bound(x*stride + r.x - pad,
+                                              y*stride + r.y - pad,
+                                              r.z, n);
             // This creates a padded input and avoids checking boundary
             // conditions while computing the actual convolution
-            f_in_bound.compute_at(forward, n);
+
+            // There are performance implications to this and seems to
+            // be incompatible with some schedules. Have to investigate
+            // this more closely.
+            //f_in_bound.compute_at(forward, n);
+            f_in_bound.compute_root();
 
         }
 
