@@ -44,7 +44,7 @@ class SoftMax: public Layer {
     public:
         Var in_dim, n;
         int num_classes, num_samples;
-        // Expects one input layer (num_classes x num_samples)
+        // Expects 2-dimensional input layer (num_classes x num_samples)
         SoftMax(Layer* in) : Layer(in) {
             assert(in->out_dims() == 2);
 
@@ -56,9 +56,8 @@ class SoftMax: public Layer {
             // Define forward
             Func exp_max, expo, normalizer;
             RDom r(0, num_classes);
-            exp_max(n) = maximum(in_f(r.x, num_samples));
-            expo(in_dim, n) = exp(in_f(in_dim, n)
-                    - exp_max(n));
+            exp_max(n) = maximum(in_f(r.x, n));
+            expo(in_dim, n) = exp(in_f(in_dim, n) - exp_max(n));
             normalizer(n) = cast(in_f.output_types()[0], 0);
             normalizer(n) += expo(r.x, n);
             forward(in_dim, n) = expo(in_dim, n)/normalizer(n);
@@ -125,6 +124,7 @@ class Affine: public Layer {
         Affine(int _num_units, Layer* in) : Layer(in) {
 
             Func in_f = in_layer->forward;
+            num_units = _num_units;
 
             // Create parameters
             num_inputs = in->out_dim_size(0);
@@ -282,7 +282,7 @@ class DropOut: public Layer {
 class ReLU: public Layer {
     public:
         Var x, y, z, w;
-        ReLU(float _thresh, Layer* in) : Layer(in) {
+        ReLU(Layer* in) : Layer(in) {
             Func in_f = in_layer->forward;
             // Define forward
             switch(in_layer->out_dims()) {
@@ -345,7 +345,7 @@ class Convolutional: public Layer {
         // number of filters, filter height, filter width, padding and stride
         int num_f, f_h, f_w, pad, stride;
         Func f_in_bound;
-        Convolutional(int _num_f, int _f_h, int _f_w, int _pad, int _stride,
+        Convolutional(int _num_f, int _f_w, int _f_h, int _pad, int _stride,
                 Layer* in) : Layer(in) {
 
             assert(in_layer->out_dims() == 4);
@@ -529,7 +529,8 @@ class DataLayer: public Layer {
         Var x, y, z, n;
         DataLayer(int _in_w, int _in_h, int _in_ch, int _num_samples,
                   Image<float> &data) : Layer(0) {
-
+                in_w = _in_w; in_h = _in_w; in_ch = _in_ch;
+                num_samples = _num_samples;
                 // Define forward
                 forward(x, y, z, n) = data(x, y, z, n);
         }

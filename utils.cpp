@@ -1,17 +1,4 @@
-#include <math.h>
-#include <sys/time.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <random>
-
-#include "opencv2/core/core.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-#include "opencv2/highgui/highgui.hpp"
-
-#include "dataloaders/db.hpp"
-#include "dataloaders/data.pb.h"
-#include "dataloaders/io.hpp"
-
+#include "utils.h"
 void load_batch(int batch_size, int crop_w, int crop_h,
                 Image<float> &data, Image<int> &labels,
                 db::Cursor* cur) {
@@ -148,7 +135,7 @@ void update_with_momentum(Image<float> &param, Image<float> &dparam,
     }
 }
 
-void show_filter_weights(int num_f, int f_w, int f_h, Image<float> &W) {
+void show_filter_weights(int num_f, int f_w, int f_h, int ch, Image<float> &W) {
     // Create window
     cv::namedWindow( "Filter Weights" , cv::WINDOW_NORMAL );
     int sep = 1;
@@ -160,7 +147,7 @@ void show_filter_weights(int num_f, int f_w, int f_h, Image<float> &W) {
         int grid_loc_y = n%grid_size;
         double min_val = W(0, 0, 0, n);
         double max_val = W(0, 0, 0, n);
-        for(int c = 0; c < CH; c++)
+        for(int c = 0; c < ch; c++)
             for(int i = 0; i < f_h; i++)
                 for(int j = 0; j < f_w; j++) {
                     if (W(i, j, c, n) > max_val)
@@ -168,7 +155,7 @@ void show_filter_weights(int num_f, int f_w, int f_h, Image<float> &W) {
                     if (W(i, j, c, n) < min_val)
                         min_val = W(i, j, c, n);
                 }
-        for(int c = 0; c < CH; c++)
+        for(int c = 0; c < ch; c++)
             for(int i = 0; i < f_h; i++)
                 for(int j = 0; j < f_w; j++) {
                     // The color channesl seem to be flipped

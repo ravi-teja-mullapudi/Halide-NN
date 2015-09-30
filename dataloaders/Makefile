@@ -11,7 +11,7 @@ all: test_io
 data.pb.h data.pb.cc: data.proto
 	protoc data.proto --cpp_out=./
 
-io.o: io.cpp io.hpp data.pb.h 
+io.o: io.cpp io.hpp data.pb.h
 	$(CXX) $(CXXFLAGS) -c -Wall io.cpp
 
 db.o: db.cpp db.hpp data.pb.h

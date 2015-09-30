@@ -1,57 +1,88 @@
 #include "layers.h"
 #include<stdio.h>
 #include <sys/time.h>
+#include "utils.h"
 
 int main(int argc, char **argv) {
 
-    // Description of the neural network
-    int N = 100; // number of samples/batch_size
+    // Google logging needed for parts of caffe that were extracted
 
-    int N_f = 32; // number of filters
+    // Network structure
+    // data - conv - reLU - pool - fc - softmax
+
+    // Description of the neural network
+
+    int N = 100; // number of samples/batch_size
+    int d_w = 32; // data width
+    int d_h = 32; // data height
+    int ch = 3; // number of channels
+
+    Image<float> data(32, 32, 3, 100);
+    DataLayer d_layer(d_h, d_w, ch, N, data);
+
+    printf("data out size %d x %d x %d x %d\n", d_layer.out_dim_size(0),
+                                                d_layer.out_dim_size(1),
+                                                d_layer.out_dim_size(2),
+                                                d_layer.out_dim_size(3));
+    int n_f = 32; // number of filters
     int f_w = 7;  // filter width
     int f_h = 7;  // filter height
     int pad = (f_w-1)/2; // padding required to handle boundaries
     int stride = 1; // stride at which the filter evaluated
-    //class Convolutional conv(N_f, f_w, f_h, pad, stride);
 
 
-    Image<float> I1(5, 5, 1, 1);
-    for (int i = 0; i < 5; i++)
-        for (int j = 0; j < 5; j++)
-            I1(i, j, 0, 0) = i + j;
+    Convolutional conv(n_f, f_w, f_h, pad, stride, &d_layer);
+    printf("conv out size %d x %d x %d x %d\n", conv.out_dim_size(0),
+                                                conv.out_dim_size(1),
+                                                conv.out_dim_size(2),
+                                                conv.out_dim_size(3));
 
-    class DataLayer data(5, 5, 1, 1, I1);
-    data.forward.realize(5, 5, 1, 1);
+    ReLU relu(&conv);
 
-    Image<float> I2;
-    I2 = I1;
-    for (int i = 0; i < 5; i++) {
-        for (int j = 0; j < 5; j++)
-            printf("%f ", I2(i, j, 0, 0));
-        printf("\n");
-    }
+    int p_w = 2; // pooling width
+    int p_h = 2; // pooling height
+    int p_stride = 2; // pooling stride
 
-    timeval t1, t2;
+    MaxPooling pool(p_w, p_h, p_stride, &relu);
 
-    Func gradient, blah;
-    Var x, y;
-    Expr e = x + y;
-    gradient(x, y) = e;
-    blah(x, y) = e * e;
+    printf("pool out size %d x %d x %d x %d\n", pool.out_dim_size(0),
+                                                pool.out_dim_size(1),
+                                                pool.out_dim_size(2),
+                                                pool.out_dim_size(3));
+
+    Flatten flatten(&pool);
+
+    printf("flatten out size %d x %d\n", flatten.out_dim_size(0),
+                                         flatten.out_dim_size(1));
+
+    int C = 10; // number of classes
+
+    Affine fc(C, &flatten);
+
+    printf("fc out size %d x %d\n", fc.out_dim_size(0),
+                                    fc.out_dim_size(1));
+
+    SoftMax softm(&fc);
+
+    printf("softm out size %d x %d\n", softm.out_dim_size(0),
+                                       softm.out_dim_size(1));
+
+    Image<float> scores(C, N);
+
+    // Schedule
+    conv.forward.compute_root();
+    pool.forward.compute_root();
+    fc.forward.compute_root();
+    softm.forward.compute_root();
 
     // Build
     std::vector<Func> outs;
-
-    outs.push_back(gradient);
-    outs.push_back(blah);
-
-    Image<int32_t> out1(800, 600);
-    Image<int32_t> out2(80, 60);
-
+    outs.push_back(softm.forward);
     Pipeline p(outs);
 
+    timeval t1, t2;
     gettimeofday(&t1, NULL);
-    p.realize({out1, out2});
+    p.realize({scores});
     gettimeofday(&t2, NULL);
 
     float time = (t2.tv_sec - t1.tv_sec) +
@@ -60,7 +91,7 @@ int main(int argc, char **argv) {
 
 
     gettimeofday(&t1, NULL);
-    p.realize({out1, out2});
+    p.realize({scores});
     gettimeofday(&t2, NULL);
 
     time = (t2.tv_sec - t1.tv_sec) +
