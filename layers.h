@@ -6,7 +6,7 @@ class Layer {
             // The first layer in the pipeline does not have an input layer
             if (in) {
                 // Get the halide function that computes values
-                // of the input layer        
+                // of the input layer
                 assert(in->forward.defined());
 
                 // Record the input layer
@@ -527,8 +527,8 @@ class DataLayer: public Layer {
     public:
         int in_w, in_h, in_ch, num_samples;
         Var x, y, z, n;
-        DataLayer(int _in_w, int _in_h, int _in_ch, int _num_samples, 
-                  Image<float> data) : Layer(0) {
+        DataLayer(int _in_w, int _in_h, int _in_ch, int _num_samples,
+                  Image<float> &data) : Layer(0) {
 
                 // Define forward
                 forward(x, y, z, n) = data(x, y, z, n);
@@ -565,14 +565,14 @@ class Flatten: public Layer {
             // Define forward
             if (in_layer->out_dims() == 2) {
                 out_width = in_layer->out_dim_size(0);
-                forward(x, n) = in_layer->forward(x, n);  
+                forward(x, n) = in_layer->forward(x, n);
             } else if (in_layer->out_dims() == 3) {
-                int w = in_layer->out_dim_size(0); 
+                int w = in_layer->out_dim_size(0);
                 int h = in_layer->out_dim_size(1);
                 out_width = w * h;
                 forward(x, n) = in_layer->forward(x%w, (x/w), n);
             } else if (in_layer->out_dims() == 4) {
-                int w = in_layer->out_dim_size(0); 
+                int w = in_layer->out_dim_size(0);
                 int h = in_layer->out_dim_size(1);
                 int c = in_layer->out_dim_size(2);
                 out_width = w * h * c;
@@ -584,13 +584,13 @@ class Flatten: public Layer {
         void back_propagate(Func dout) {
             assert(dout.defined());
             if(!f_in_grad.defined()) {
-                if(in_layer->out_dims() == 2) 
+                if(in_layer->out_dims() == 2)
                     f_in_grad(x, n) = dout(x, n);
                 else if(in_layer->out_dims() == 3) {
-                    int w = in_layer->out_dim_size(0); 
+                    int w = in_layer->out_dim_size(0);
                     f_in_grad(x, y, n) = dout(y*w + x, n);
                 } else if (in_layer->out_dims() == 4) {
-                    int w = in_layer->out_dim_size(0); 
+                    int w = in_layer->out_dim_size(0);
                     int h = in_layer->out_dim_size(1);
                     f_in_grad(x, y, z, n) = dout(z*w*h + y*w + x, n);
                 }
