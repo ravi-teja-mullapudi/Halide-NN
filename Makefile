@@ -2,7 +2,7 @@ CXX ?= g++
 GXX ?= g++
 
 HALIDE_PATH = /home/ravi/Systems/Halide
-CXXFLAGS += -std=c++11
+CXXFLAGS += -std=c++11 -g
 
 INCFLAGS += -I$(HALIDE_PATH)/include
 LDFLAGS += -L/usr/local/lib -lglog -lgflags -lprotobuf -lleveldb -lsnappy \
@@ -19,5 +19,8 @@ test: layer_test.cpp layers.h utils.o dataloaders/io.o dataloaders/db.o
 	$(CXX) $(CXXFLAGS) layer_test.cpp dataloaders/data.pb.cc dataloaders/io.o \
            dataloaders/db.o utils.o -o layer_test.out $(LDFLAGS) $(INCFLAGS)
 
+conv_bench: conv_bench.cpp layers.h utils.o dataloaders/io.o dataloaders/db.o
+	$(CXX) $(CXXFLAGS) conv_bench.cpp dataloaders/data.pb.cc dataloaders/io.o \
+           dataloaders/db.o utils.o -o conv_bench.out $(LDFLAGS) $(INCFLAGS)
 clean:
-	rm -f layer_test.out utils.o
+	rm -f layer_test.out utils.o conv_bench.out
