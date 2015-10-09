@@ -121,10 +121,12 @@ class Affine: public Layer {
         // num_units is the number of units in the layer
         // num_inputs is the size of each input sample
         int num_units, num_samples, num_inputs;
-        Affine(int _num_units, Layer* in) : Layer(in) {
+        float reg;
+        Affine(int _num_units, float _reg, Layer* in) : Layer(in) {
 
             Func in_f = in_layer->forward;
             num_units = _num_units;
+            reg = _reg;
 
             // Create parameters
             num_inputs = in->out_dim_size(0);
@@ -159,8 +161,9 @@ class Affine: public Layer {
                     dout(r1.x, n) *  W(in_dim, r1.x);
 
                 RDom r2(0, num_samples);
-                // initializing to zero
-                dW(in_dim, unit_dim) = cast(dout.output_types()[0], 0);
+                // initializing to regularized weights
+                dW(in_dim, unit_dim) = cast(dout.output_types()[0], 
+                                            reg*W(in_dim, unit_dim));
                 Func in_f = in_layer->forward;
                 dW(in_dim, unit_dim) +=
                     dout(unit_dim, r2.x) * in_f(in_dim, r2.x);
@@ -344,9 +347,10 @@ class Convolutional: public Layer {
         int num_samples, in_ch, in_h, in_w;
         // number of filters, filter height, filter width, padding and stride
         int num_f, f_h, f_w, pad, stride;
+        float reg; 
         Func f_in_bound;
         Convolutional(int _num_f, int _f_w, int _f_h, int _pad, int _stride,
-                Layer* in) : Layer(in) {
+                      float _reg, Layer* in) : Layer(in) {
 
             assert(in_layer->out_dims() == 4);
 
@@ -354,6 +358,7 @@ class Convolutional: public Layer {
             in_ch = in_layer->out_dim_size(2);
             in_h = in_layer->out_dim_size(1);
             in_w = in_layer->out_dim_size(0);
+            reg = _reg;
 
             assert( (in_h + 2 * _pad - _f_h) % _stride == 0);
             assert( (in_w + 2 * _pad - _f_w) % _stride == 0);
@@ -403,8 +408,9 @@ class Convolutional: public Layer {
 
                 RDom r1(0, out_w, 0, out_h, 0, num_samples);
 
-                // intialize to zero
-                dW(x, y, z, n) = cast(dout.output_types()[0], 0);
+                // intialize to regularized weights
+                dW(x, y, z, n) = cast(dout.output_types()[0], 
+                                      reg * W(x, y, z, n));
                 dW(x, y, z, n) += dout(r1.x, r1.y, n, r1.z) *
                                        f_in_bound(r1.x*stride + x - pad,
                                                   r1.y*stride + y - pad,

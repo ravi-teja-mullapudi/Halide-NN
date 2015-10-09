@@ -31,7 +31,9 @@ void load_batch(int batch_size, int crop_w, int crop_h,
 
 void init_gaussian(Image<float> &weights, float mean, float std_dev,
                            std::random_device &rd) {
-    std::mt19937 gen(rd());
+    //std::mt19937 gen(rd());
+    // Fixing the seed for now
+    std::mt19937 gen(82387);
     std::normal_distribution<> d(mean, std_dev);
 
     switch (weights.dimensions()) {
@@ -139,15 +141,16 @@ void show_filter_weights(int num_f, int f_w, int f_h, int ch, Image<float> &W) {
     // Create window
     cv::namedWindow( "Filter Weights" , cv::WINDOW_NORMAL );
     int sep = 1;
-    int grid_size = std::ceil(std::sqrt(num_f));
+    int total_filters = num_f * ch;
+    int grid_size = std::ceil(std::sqrt(total_filters));
     cv::Mat filter_show = cv::Mat::zeros(grid_size * (f_w + sep) -1,
-                                         grid_size * (f_h + sep) -1, CV_64FC3);
+                                         grid_size * (f_h + sep) -1, CV_64FC1);
     for(int n = 0; n < num_f; n++) {
-        int grid_loc_x = n/grid_size;
-        int grid_loc_y = n%grid_size;
-        double min_val = W(0, 0, 0, n);
-        double max_val = W(0, 0, 0, n);
-        for(int c = 0; c < ch; c++)
+        for(int c = 0; c < ch; c++) {
+            int grid_loc_x = (c*num_f + n)/grid_size;
+            int grid_loc_y = (c*num_f + n)%grid_size;
+            double min_val = W(0, 0, 0, n);
+            double max_val = W(0, 0, 0, n);
             for(int i = 0; i < f_h; i++)
                 for(int j = 0; j < f_w; j++) {
                     if (W(i, j, c, n) > max_val)
@@ -155,15 +158,15 @@ void show_filter_weights(int num_f, int f_w, int f_h, int ch, Image<float> &W) {
                     if (W(i, j, c, n) < min_val)
                         min_val = W(i, j, c, n);
                 }
-        for(int c = 0; c < ch; c++)
             for(int i = 0; i < f_h; i++)
                 for(int j = 0; j < f_w; j++) {
-                    // The color channesl seem to be flipped
-                    double normalized = (W(i, j, c, n) - min_val)/(max_val - min_val);
-                    filter_show.at<cv::Vec3d>(grid_loc_x*(f_w + sep) + i,
-                                              grid_loc_y*(f_h +sep) + j)[2-c]
+                    double normalized = (W(i, j, c, n) - min_val)/
+                                        (max_val - min_val);
+                    filter_show.at<double>(grid_loc_x*(f_w + sep) + i,
+                                           grid_loc_y*(f_h +sep) + j)
                                               = normalized;
                 }
+        }
     }
     for(;;) {
         int c;

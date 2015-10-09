@@ -20,3 +20,7 @@ void load_batch(int batch_size, int crop_w, int crop_h,
 void init_gaussian(Image<float> &weights, float mean, float std_dev,
                            std::random_device &rd);
 void init_constant(Image<float> &biases, float val);
+void update_with_momentum(Image<float> &param, Image<float> &dparam,
+                          Image<float> &update_cache, float momentum,
+                          float lr_rate);
+void show_filter_weights(int num_f, int f_w, int f_h, int ch, Image<float> &W);
