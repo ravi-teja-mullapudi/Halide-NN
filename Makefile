@@ -1,7 +1,7 @@
 CXX ?= g++
 GXX ?= g++
 
-HALIDE_PATH = /home/ravi/Systems/Halide
+HALIDE_PATH = ../Halide
 CXXFLAGS += -std=c++11 -g
 
 INCFLAGS += -I$(HALIDE_PATH)/include
