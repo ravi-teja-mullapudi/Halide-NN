@@ -37,7 +37,7 @@ class Layer {
         // which computes the derivate of the objective with respect to layer
         // outputs. Does this recursively for the input layer.
         virtual void back_propagate(Func dforward) = 0;
-
+        virtual ~Layer() {};
 };
 
 class SoftMax: public Layer {
@@ -378,7 +378,7 @@ class Convolutional: public Layer {
 
             // Define forward
             RDom r(0, f_w, 0, f_h, 0, in_ch);
-            // intialize to bias
+            // Initialize to bias
             forward(x, y, z, n) = b(z);
             forward(x, y, z, n) += W(r.x, r.y, r.z, z) *
                                    f_in_bound(x*stride + r.x - pad,

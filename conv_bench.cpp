@@ -8,8 +8,8 @@ int main(int argc, char **argv) {
     timeval t1, t2;
 
     int N = 1; // number of samples/batch_size
-    int d_w = 24; // data width
-    int d_h = 24; // data height
+    int d_w = 128; // data width
+    int d_h = 128; // data height
     int ch = 96; // number of channels
 
     Image<float> data(d_w, d_h, ch, N);
@@ -18,6 +18,7 @@ int main(int argc, char **argv) {
                                                 d_layer->out_dim_size(1),
                                                 d_layer->out_dim_size(2),
                                                 d_layer->out_dim_size(3));
+
     int n_f = 256; // number of filters
     int f_w = 3;  // filter width
     int f_h = 3;  // filter height
@@ -30,7 +31,57 @@ int main(int argc, char **argv) {
                                                 conv->out_dim_size(1),
                                                 conv->out_dim_size(2),
                                                 conv->out_dim_size(3));
+    Func f_in_bound; 
+    f_in_bound = BoundaryConditions::constant_exterior(
+                                    d_layer->forward, 0,
+                                    0, d_w, 0, d_h);
+    f_in_bound.compute_root();
+    Image<float> W(f_w, f_h, ch, n_f), b(n_f);
 
+    // Define forward
+    Func forward;
+    Var x, y, z, n;
+    RDom r(0, f_w, 0, f_h, 0, ch);
+    // Initialize to bias
+    forward(x, y, z, n) = b(z);
+    forward(x, y, z, n) += W(r.x, r.y, r.z, z) *
+                           f_in_bound(x*stride + r.x - pad,
+                                      y*stride + r.y - pad,
+                                      r.z, n);
+
+    int i_block_size = 8;
+    int num_blocks = ch/i_block_size;
+    printf("num blocks = %d\n", num_blocks);
+    Var i_B, o_B, x_t, y_t, z_t;
+    RDom rB(0, f_w, 0, f_h, 0, i_block_size);
+    Func f_partial;
+    /*
+    f_partial(x, y, i_B, n) = 0.0f;
+    f_partial(x, y, i_B, n) += W(rB.x, rB.y, (i_B%num_blocks)*i_block_size + rB.z, 
+                                  i_B/num_blocks) *
+                                  f_in_bound(x*stride + rB.x - pad,
+                                             y*stride + rB.y - pad,
+                                             (i_B%num_blocks)*i_block_size + rB.z, n);
+    */                                             
+    f_partial(x, y, i_B, z, n) = 0.0f;
+    f_partial(x, y, i_B, z, n) += W(rB.x, rB.y, (i_B)*i_block_size + rB.z, z) *
+                                  f_in_bound(x*stride + rB.x - pad,
+                                             y*stride + rB.y - pad,
+                                             (i_B)*i_block_size + rB.z, n);
+    Func f_full;
+    RDom rBlocks(0, num_blocks);
+    f_full(x, y, z, n) = b(z);
+    f_full(x, y, z, n) += f_partial(x, y, rBlocks.x, z, n);
+
+    f_partial.compute_root();
+    f_partial.vectorize(x, 8);
+    f_partial.update().vectorize(x, 8);
+    f_partial.update().split(z, z, z_t, 8);
+    f_partial.update().reorder(z_t, i_B, z);
+    f_full.compute_root();
+    f_full.update().vectorize(x, 8);
+    f_full.vectorize(x, 8);
+    f_full.print_loop_nest();
     /*
     RDom r(0, 10, 0, 20, 0, 30);
     Var x;
@@ -39,63 +90,90 @@ int main(int argc, char **argv) {
     g(x) = x; 
     f(x) +=  g(r.x) + g(r.y) + g(r.z);
 
-    f.update().reorder(r.z, r.y, r.x);
+    f.update().reorder(r[2], r[1], r[0]);
     f.print_loop_nest();
     */
+
+    /*
+    Var a, b, c, d, e;
+    Func f;
+    f(a, b, c, d, e) = 0;
+    f.print_loop_nest();
+    */
+
     // Schedule
-    int schedule = 1;
-    Var x_t, y_t, z_t;
+    int schedule = 5;
     switch(schedule) {
         case 1:
             // sequential schedule vectorization
-            conv->forward.compute_root();
-            conv->forward.vectorize(conv->x, 8);          
-            conv->forward.update().vectorize(conv->x, 8);          
-            conv->forward.print_loop_nest();
+            forward.compute_root();
+            //forward.update().vectorize(x, 8);          
+            forward.print_loop_nest();
             break;
         case 2:
             // simple multi core parallel schedule
-            conv->forward.compute_root();
-            conv->forward.update().parallel(conv->z);
-            conv->forward.update().vectorize(conv->x, 8);          
-            conv->forward.print_loop_nest();
+            forward.compute_root();
+            forward.update().parallel(z);
+            forward.update().vectorize(x, 8);          
+            forward.print_loop_nest();
             break;
         case 3:
             // sequential blocking on output filters
-            conv->forward.update().split(conv->z, conv->z, z_t, 8);
-            conv->forward.update().reorder(z_t, conv->x, conv->y, 
-                                           conv->z, conv->n);
-            conv->forward.print_loop_nest();
+            forward.update().split(z, z, z_t, 8);
+            forward.update().reorder(z_t, x, y, 
+                                          z, n);
+            forward.print_loop_nest();
             break;
         case 4:
             // blocking spatially on the outputs
-            conv->forward.update().split(conv->x, conv->x, x_t, 16);
-            conv->forward.update().split(conv->y, conv->y, y_t, 16);
-            conv->forward.update().reorder(x_t, y_t, conv->x, conv->y, 
-                                           conv->z, conv->n); 
-            conv->forward.print_loop_nest();
+            //forward.update().split(x, x, x_t, 8);
+            //forward.update().split(y, y, y_t, 8);
+            //forward.update().reorder(x_t, y_t, x, y, 
+            //                            z, n);
+            //forward.update().unroll(r[0]);
+            forward.update().unroll(r[1]);
+            forward.update().vectorize(x, 8);          
+            forward.print_loop_nest();
             break;
         default:
-            return 0;     
+            printf("meh\n");     
     }
     Image<float> conv_out(conv->out_dim_size(0),
                           conv->out_dim_size(1),
                           conv->out_dim_size(2),
                           conv->out_dim_size(3));
+    /*
+    Image<float> partial_out(conv->out_dim_size(0),
+                             conv->out_dim_size(1),
+                             conv->out_dim_size(2) * num_blocks,
+                             conv->out_dim_size(3));
+    */                         
+    std::vector<Func> full_outs;
+    full_outs.push_back(f_full);
 
-    std::vector<Func> outs;
-    outs.push_back(conv->forward);
+    std::vector<Func> partial_outs;
+    partial_outs.push_back(f_partial);
 
-    Pipeline p(outs);
-
+    Pipeline full(full_outs);
+    Pipeline partial(partial_outs);
     for(int it = 0; it < 5; it++) {
         gettimeofday(&t1, NULL);
-        p.realize({conv_out});
+        full.realize(conv_out);
         gettimeofday(&t2, NULL);
 
         float time = (t2.tv_sec - t1.tv_sec) +
             (t2.tv_usec - t1.tv_usec) / 1000000.0f;
         printf("time: %f\n", time);
     }
+    /*
+    for(int it = 0; it < 5; it++) {
+        gettimeofday(&t1, NULL);
+        partial.realize(partial_out);
+        gettimeofday(&t2, NULL);
 
+        float time = (t2.tv_sec - t1.tv_sec) +
+            (t2.tv_usec - t1.tv_usec) / 1000000.0f;
+        printf("time: %f\n", time);
+    }
+    */
 }

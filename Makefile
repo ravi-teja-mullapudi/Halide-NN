@@ -1,5 +1,5 @@
-CXX ?= g++
-GXX ?= g++
+CXX ?= g++-5
+GXX ?= g++-5
 
 HALIDE_PATH = ../Halide
 CXXFLAGS += -std=c++11 -g
@@ -7,7 +7,7 @@ CXXFLAGS += -std=c++11 -g
 INCFLAGS += -I$(HALIDE_PATH)/include
 LDFLAGS += -L/usr/local/lib -lglog -lgflags -lprotobuf -lleveldb -lsnappy \
            -llmdb -lboost_system -lm -lopencv_core -lopencv_highgui \
-           -lopencv_imgproc -lboost_thread -ldl -lpthread -lz \
+           -lopencv_imgproc -lboost_thread-mt -ldl -lpthread -lz \
            -lHalide -L$(HALIDE_PATH)/bin
 
 all: test
