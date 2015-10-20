@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
 
     // Description of the neural network
 
-    int N = 4; // number of samples/batch_size
+    int N = 16; // number of samples/batch_size
     int d_w = 224; // data width
     int d_h = 224; // data height
     int ch = 3; // number of channels
@@ -269,7 +269,7 @@ int main(int argc, char **argv) {
 
     // Schedule
     int sched = 1;
-    int vec_len = 4;
+    int vec_len = 8;
     switch(sched) {
         case 1:
             acc.compute_root();
@@ -340,6 +340,7 @@ int main(int argc, char **argv) {
             conv3_2->forward.update().vectorize(conv3_2->x, vec_len);
             conv3_3->forward.update().vectorize(conv3_3->x, vec_len);
 
+            pool2->forward.print_loop_nest();
             pool2->forward.compute_root().parallel(pool2->n);
             pool2->forward.vectorize(pool2->z, vec_len);
 

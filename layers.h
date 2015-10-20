@@ -384,6 +384,8 @@ class Convolutional: public Layer {
                                    f_in_bound(x*stride + r.x - pad,
                                               y*stride + r.y - pad,
                                               r.z, n);
+
+            forward.update().reorder(y, x, r.z);
             // This creates a padded input and avoids checking boundary
             // conditions while computing the actual convolution
 
