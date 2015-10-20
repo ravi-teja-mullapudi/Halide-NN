@@ -162,7 +162,7 @@ class Affine: public Layer {
 
                 RDom r2(0, num_samples);
                 // initializing to regularized weights
-                dW(in_dim, unit_dim) = cast(dout.output_types()[0], 
+                dW(in_dim, unit_dim) = cast(dout.output_types()[0],
                                             reg*W(in_dim, unit_dim));
                 Func in_f = in_layer->forward;
                 dW(in_dim, unit_dim) +=
@@ -347,7 +347,7 @@ class Convolutional: public Layer {
         int num_samples, in_ch, in_h, in_w;
         // number of filters, filter height, filter width, padding and stride
         int num_f, f_h, f_w, pad, stride;
-        float reg; 
+        float reg;
         Func f_in_bound;
         Convolutional(int _num_f, int _f_w, int _f_h, int _pad, int _stride,
                       float _reg, Layer* in) : Layer(in) {
@@ -390,8 +390,8 @@ class Convolutional: public Layer {
             // There are performance implications to this and seems to
             // be incompatible with some schedules. Have to investigate
             // this more closely.
-            //f_in_bound.compute_at(forward, n);
-            f_in_bound.compute_root();
+            f_in_bound.compute_at(forward, n);
+            //f_in_bound.compute_root();
 
         }
 
@@ -409,7 +409,7 @@ class Convolutional: public Layer {
                 RDom r1(0, out_w, 0, out_h, 0, num_samples);
 
                 // intialize to regularized weights
-                dW(x, y, z, n) = cast(dout.output_types()[0], 
+                dW(x, y, z, n) = cast(dout.output_types()[0],
                                       reg * W(x, y, z, n));
                 dW(x, y, z, n) += dout(r1.x, r1.y, n, r1.z) *
                                        f_in_bound(r1.x*stride + x - pad,

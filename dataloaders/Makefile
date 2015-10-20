@@ -4,7 +4,7 @@ GXX ?= g++
 CXXFLAGS += -std=c++11
 LDFLAGS += -L/usr/local/lib -lglog -lgflags -lprotobuf -lleveldb -lsnappy \
 		   -llmdb -lboost_system -lm -lopencv_core -lopencv_highgui \
-		   -lopencv_imgproc -lboost_thread-mt
+		   -lopencv_imgproc -lboost_thread
 
 all: test_io
 

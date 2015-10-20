@@ -7,7 +7,7 @@ CXXFLAGS += -std=c++11 -g
 INCFLAGS += -I$(HALIDE_PATH)/include
 LDFLAGS += -L/usr/local/lib -lglog -lgflags -lprotobuf -lleveldb -lsnappy \
            -llmdb -lboost_system -lm -lopencv_core -lopencv_highgui \
-           -lopencv_imgproc -lboost_thread-mt -ldl -lpthread -lz \
+           -lopencv_imgproc -lboost_thread -ldl -lpthread -lz \
            -lHalide -L$(HALIDE_PATH)/bin
 
 all: test
@@ -22,5 +22,9 @@ test: layer_test.cpp layers.h utils.o dataloaders/io.o dataloaders/db.o
 conv_bench: conv_bench.cpp layers.h utils.o dataloaders/io.o dataloaders/db.o
 	$(CXX) $(CXXFLAGS) conv_bench.cpp dataloaders/data.pb.cc dataloaders/io.o \
            dataloaders/db.o utils.o -o conv_bench.out $(LDFLAGS) $(INCFLAGS)
+
+vgg_bench: vgg_forward.cpp layers.h utils.o dataloaders/io.o dataloaders/db.o
+	$(CXX) $(CXXFLAGS) vgg_forward.cpp dataloaders/data.pb.cc dataloaders/io.o \
+           dataloaders/db.o utils.o -o vgg.out $(LDFLAGS) $(INCFLAGS)
 clean:
-	rm -f layer_test.out utils.o conv_bench.out
+	rm -f layer_test.out utils.o conv_bench.out vgg.out
