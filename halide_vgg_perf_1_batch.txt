@@ -1,0 +1,53 @@
+data out size 224 x 224 x 3 x 1
+conv1_1 out size 224 x 224 x 64 x 1
+conv1_2 out size 224 x 224 x 64 x 1
+pool1 out size 112 x 112 x 64 x 1
+conv2_1 out size 112 x 112 x 128 x 1
+conv2_2 out size 112 x 112 x 128 x 1
+pool2 out size 56 x 56 x 128 x 1
+conv3_1 out size 56 x 56 x 256 x 1
+conv3_2 out size 56 x 56 x 256 x 1
+conv3_3 out size 56 x 56 x 256 x 1
+pool3 out size 28 x 28 x 256 x 1
+conv4_1 out size 28 x 28 x 512 x 1
+conv4_2 out size 28 x 28 x 512 x 1
+conv4_3 out size 28 x 28 x 512 x 1
+pool4 out size 14 x 14 x 512 x 1
+conv5_1 out size 14 x 14 x 512 x 1
+conv5_2 out size 14 x 14 x 512 x 1
+conv5_3 out size 14 x 14 x 512 x 1
+pool5 out size 7 x 7 x 512 x 1
+flatten out size 25088 x 1
+fc6 out size 4096 x 1
+fc7 out size 4096 x 1
+fc8 out size 1000 x 1
+softm out size 1000 x 1
+time:7.829713
+time:0.333420
+time:0.353102
+time:0.323089
+time:0.341125
+    Command being timed: "./vgg.out"
+    User time (seconds): 31.97
+    System time (seconds): 13.09
+    Percent of CPU this job got: 485%
+    Elapsed (wall clock) time (h:mm:ss or m:ss): 0:09.28
+    Average shared text size (kbytes): 0
+    Average unshared data size (kbytes): 0
+    Average stack size (kbytes): 0
+    Average total size (kbytes): 0
+    Maximum resident set size (kbytes): 162268
+    Average resident set size (kbytes): 0
+    Major (requiring I/O) page faults: 0
+    Minor (reclaiming a frame) page faults: 722642
+    Voluntary context switches: 14389
+    Involuntary context switches: 4903
+    Swaps: 0
+    File system inputs: 0
+    File system outputs: 0
+    Socket messages sent: 0
+    Socket messages received: 0
+    Signals delivered: 0
+    Page size (bytes): 4096
+    Exit status: 0
+

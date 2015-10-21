@@ -306,35 +306,35 @@ class ReLU: public Layer {
                     forward(x) = max(0, in_f(x));
                     // schedule
                     if (schedule) {
-                        forward.compute_root();
-                        forward.vectorize(x, vec_len);
+                        //forward.compute_root();
+                        //forward.vectorize(x, vec_len);
                     }
                     break;
                 case 2:
                     forward(x, y) = max(0, in_f(x, y));
                     // schedule
                     if (schedule) {
-                        forward.compute_root();
-                        forward.vectorize(x, vec_len);
-                        forward.parallel(y);
+                        //forward.compute_root();
+                        //forward.vectorize(x, vec_len);
+                        //forward.parallel(y);
                     }
                     break;
                 case 3:
                     forward(x, y, z) = max(0, in_f(x, y, z));
                     // schedule
                     if (schedule) {
-                        forward.compute_root();
-                        forward.vectorize(x, vec_len);
-                        forward.parallel(z);
+                        //forward.compute_root();
+                        //forward.vectorize(x, vec_len);
+                        //forward.parallel(z);
                     }
                     break;
                 case 4:
                     forward(x, y, z, w) = max(0, in_f(x, y, z, w));
                     // schedule
                     if (schedule) {
-                        forward.compute_root();
-                        forward.vectorize(x, vec_len);
-                        forward.parallel(w);
+                        //forward.compute_root();
+                        //forward.vectorize(x, vec_len);
+                        //forward.parallel(w);
                     }
                     break;
                 default:
