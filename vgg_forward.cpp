@@ -23,7 +23,7 @@ int main(int argc, char **argv) {
 
     // Description of the neural network
 
-    int N = 16; // number of samples/batch_size
+    int N = 1; // number of samples/batch_size
     int d_w = 224; // data width
     int d_h = 224; // data height
     int ch = 3; // number of channels
@@ -46,22 +46,32 @@ int main(int argc, char **argv) {
 
     Convolutional * conv1_1  = new Convolutional(n_f_1, f_w, f_h, pad,
                                               stride, reg, d_layer);
+    conv1_1->o_block_size = 32;
+    conv1_1->y_block_size = 16;
     network.push_back(conv1_1);
     printf("conv1_1 out size %d x %d x %d x %d\n", conv1_1->out_dim_size(0),
                                                    conv1_1->out_dim_size(1),
                                                    conv1_1->out_dim_size(2),
                                                    conv1_1->out_dim_size(3));
 
-    ReLU * relu1_1 = new ReLU(conv1_1);
+    ReLU * relu1_1 = new ReLU(conv1_1, 1);
     network.push_back(relu1_1);
 
     Convolutional * conv1_2  = new Convolutional(n_f_1, f_w, f_h, pad,
                                               stride, reg, relu1_1);
+
+    //relu1_1->forward.compute_at(conv1_2->forward, conv1_2->x);
+    //relu1_1->forward.vectorize(relu1_1->x, 8);
+
+    conv1_2->o_block_size = 32;
+    conv1_2->y_block_size = 32;
     network.push_back(conv1_2);
     printf("conv1_2 out size %d x %d x %d x %d\n", conv1_2->out_dim_size(0),
                                                    conv1_2->out_dim_size(1),
                                                    conv1_2->out_dim_size(2),
                                                    conv1_2->out_dim_size(3));
+
+
     ReLU * relu1_2 = new ReLU(conv1_2);
     network.push_back(relu1_2);
 
@@ -79,6 +89,8 @@ int main(int argc, char **argv) {
     int n_f_2 = 128;
     Convolutional * conv2_1  = new Convolutional(n_f_2, f_w, f_h, pad,
                                               stride, reg, pool1);
+    conv2_1->o_block_size = 32;
+    conv2_1->y_block_size = 8;
     network.push_back(conv2_1);
     printf("conv2_1 out size %d x %d x %d x %d\n", conv2_1->out_dim_size(0),
                                                    conv2_1->out_dim_size(1),
@@ -90,6 +102,8 @@ int main(int argc, char **argv) {
 
     Convolutional * conv2_2  = new Convolutional(n_f_2, f_w, f_h, pad,
                                               stride, reg, relu2_1);
+    conv2_2->o_block_size = 32;
+    conv2_2->y_block_size = 8;
     network.push_back(conv2_2);
     printf("conv2_2 out size %d x %d x %d x %d\n", conv2_2->out_dim_size(0),
                                                    conv2_2->out_dim_size(1),
@@ -268,7 +282,7 @@ int main(int argc, char **argv) {
     Func acc = softm->loss(Func(labels));
 
     // Schedule
-    int sched = 1;
+    int sched = 2;
     int vec_len = 8;
     switch(sched) {
         case 1:

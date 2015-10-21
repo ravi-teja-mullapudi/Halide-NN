@@ -8,8 +8,8 @@ int main(int argc, char **argv) {
     timeval t1, t2;
 
     int N = 16; // number of samples/batch_size
-    int d_w = 224; // data width
-    int d_h = 224; // data height
+    int d_w = 112; // data width
+    int d_h = 112; // data height
     int ch = 64; // number of channels
 
     Image<float> data(d_w, d_h, ch, N);
@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
                                                 d_layer->out_dim_size(2),
                                                 d_layer->out_dim_size(3));
 
-    int n_f = 64; // number of filters
+    int n_f = 128; // number of filters
     int f_w = 3;  // filter width
     int f_h = 3;  // filter height
     int pad = (f_w-1)/2; // padding required to handle boundaries
@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 
     // Blocked convolutional layer
     int i_block_size = 16;
-    int o_block_size = 8;
+    int o_block_size = 32;
     int y_block = 16;
     int num_blocks = ch/i_block_size;
     printf("num blocks = %d\n", num_blocks);
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
     int blocked_sched = 1;
     switch(blocked_sched) {
         case 1:
-            f_in_bound.compute_root();
+            //f_in_bound.compute_root();
             f_partial.compute_root();
             //f_in_bound.compute_at(f_partial, n);
             //f_partial.compute_at(f_blocked, n);
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 
     Pipeline full(full_outs);
     Pipeline partial(partial_outs);
-    
+    /* 
     for(int it = 0; it < 5; it++) {
         gettimeofday(&t1, NULL);
         full.realize(conv_out);
@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
             (t2.tv_usec - t1.tv_usec) / 1000000.0f;
         printf("Blocked time: %f\n", time);
     } 
-
+    */
     // Simple convolution
     Func f_simple;
     RDom r(0, f_w, 0, f_h, 0, ch);
@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
             break;
         case 2:
             // blocking spatially with vectorization
-            //f_in_bound.compute_at(f_simple, n);
+            f_in_bound.compute_at(f_simple, par);
             f_simple.compute_root();
             f_simple.fuse(z, n, par).parallel(par);
             f_simple.update().reorder(x, y, r.z); 

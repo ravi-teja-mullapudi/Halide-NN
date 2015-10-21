@@ -45,7 +45,7 @@ class SoftMax: public Layer {
         Var in_dim, n;
         int num_classes, num_samples;
         // Expects 2-dimensional input layer (num_classes x num_samples)
-        SoftMax(Layer* in) : Layer(in) {
+        SoftMax(Layer* in, int schedule = 1) : Layer(in) {
             assert(in->out_dims() == 2);
 
             Func in_f = in_layer->forward;
@@ -62,10 +62,13 @@ class SoftMax: public Layer {
             normalizer(n) += expo(r.x, n);
             forward(in_dim, n) = expo(in_dim, n)/normalizer(n);
 
-            // Local schedule
-            exp_max.compute_at(forward, n);
-            expo.compute_at(forward, n);
-            normalizer.compute_at(forward, n);
+            if (schedule) {
+                // Local schedule
+                exp_max.compute_at(forward, n);
+                expo.compute_at(forward, n);
+                normalizer.compute_at(forward, n);
+                forward.compute_root().parallel(n);
+            }
         }
 
         void back_propagate(Func labels) {
@@ -122,7 +125,10 @@ class Affine: public Layer {
         // num_inputs is the size of each input sample
         int num_units, num_samples, num_inputs;
         float reg;
-        Affine(int _num_units, float _reg, Layer* in) : Layer(in) {
+        // parameters for scheduling
+        Var par;
+        Affine(int _num_units, float _reg, Layer* in,
+               int schedule = 1) : Layer(in) {
 
             Func in_f = in_layer->forward;
             num_units = _num_units;
@@ -142,6 +148,12 @@ class Affine: public Layer {
             // Dot product
             forward(unit_dim, n) +=
                 in_f(r.x, n) * W(r.x, unit_dim);
+
+            if (schedule) {
+                forward.compute_root().fuse(unit_dim, n, par).parallel(par);                    
+                forward.update().fuse(unit_dim, n, par).parallel(par);                    
+            }
+
         }
 
         void back_propagate(Func dout) {
@@ -285,25 +297,50 @@ class DropOut: public Layer {
 class ReLU: public Layer {
     public:
         Var x, y, z, w;
-        ReLU(Layer* in) : Layer(in) {
+        int vec_len = 8;
+        ReLU(Layer* in, int schedule = 0) : Layer(in) {
             Func in_f = in_layer->forward;
             // Define forward
             switch(in_layer->out_dims()) {
                 case 1:
                     forward(x) = max(0, in_f(x));
+                    // schedule
+                    if (schedule) {
+                        forward.compute_root();
+                        forward.vectorize(x, vec_len);
+                    }
                     break;
                 case 2:
                     forward(x, y) = max(0, in_f(x, y));
+                    // schedule
+                    if (schedule) {
+                        forward.compute_root();
+                        forward.vectorize(x, vec_len);
+                        forward.parallel(y);
+                    }
                     break;
                 case 3:
                     forward(x, y, z) = max(0, in_f(x, y, z));
+                    // schedule
+                    if (schedule) {
+                        forward.compute_root();
+                        forward.vectorize(x, vec_len);
+                        forward.parallel(z);
+                    }
                     break;
                 case 4:
                     forward(x, y, z, w) = max(0, in_f(x, y, z, w));
+                    // schedule
+                    if (schedule) {
+                        forward.compute_root();
+                        forward.vectorize(x, vec_len);
+                        forward.parallel(w);
+                    }
                     break;
                 default:
                     assert(0);
             }
+
         }
 
         void back_propagate(Func dout) {
@@ -349,8 +386,13 @@ class Convolutional: public Layer {
         int num_f, f_h, f_w, pad, stride;
         float reg;
         Func f_in_bound;
+        // parameters for scheduling
+        Var y_t, z_t, par;
+        int o_block_size = 16;
+        int y_block_size = 32;
+        int vec_len = 8;
         Convolutional(int _num_f, int _f_w, int _f_h, int _pad, int _stride,
-                      float _reg, Layer* in) : Layer(in) {
+                      float _reg, Layer* in, int schedule=true) : Layer(in) {
 
             assert(in_layer->out_dims() == 4);
 
@@ -367,6 +409,8 @@ class Convolutional: public Layer {
             pad = _pad; stride = _stride;
 
             // Boundary condition
+            // This creates a padded input and avoids checking boundary
+            // conditions while computing the actual convolution
             f_in_bound = BoundaryConditions::constant_exterior(
                                     in_layer->forward, 0,
                                     0, in_w,
@@ -385,15 +429,26 @@ class Convolutional: public Layer {
                                               y*stride + r.y - pad,
                                               r.z, n);
 
-            forward.update().reorder(y, x, r.z);
-            // This creates a padded input and avoids checking boundary
-            // conditions while computing the actual convolution
-
-            // There are performance implications to this and seems to
-            // be incompatible with some schedules. Have to investigate
-            // this more closely.
-            f_in_bound.compute_at(forward, n);
-            //f_in_bound.compute_root();
+            if (schedule) {
+                forward.update().reorder(y, x, r.z);
+                // blocking spatially with vectorization
+                //f_in_bound.compute_at(f_simple, n);
+                forward.compute_root();
+                forward.fuse(z, n, par).parallel(par);
+                forward.update().reorder(x, y, r.z); 
+                forward.update().split(y, y, y_t, y_block_size);
+                forward.update().split(z, z, z_t, o_block_size);
+                forward.update().reorder(z_t, y);
+                forward.update().reorder(y_t, r.z, y, z); 
+                forward.update().vectorize(x, vec_len);          
+                forward.update().fuse(z, n, par);
+                forward.update().fuse(y, par, par).parallel(par);
+                // There are performance implications to this and seems to
+                // be incompatible with some schedules. Have to investigate
+                // this more closely.
+                //f_in_bound.compute_at(forward, n);
+                f_in_bound.compute_at(forward, par);
+            }
 
         }
 
@@ -472,7 +527,11 @@ class MaxPooling: public Layer {
         // stride at which the pooling is applied
         int p_h, p_w, stride;
         Var x, y, z, n;
-        MaxPooling(int _p_w, int _p_h, int _stride, Layer* in) : Layer(in) {
+        // parameters for scheduling
+        Var par;
+        int vec_len = 8;
+        MaxPooling(int _p_w, int _p_h, int _stride, Layer* in, 
+                   int schedule = 1) : Layer(in) {
             assert(in_layer->out_dims() == 4);
 
             num_samples = in_layer->out_dim_size(3);
@@ -492,6 +551,11 @@ class MaxPooling: public Layer {
             forward(x, y, z, n) = maximum(in_f(x * stride + r.x,
                                                y * stride + r.y,
                                                z, n));
+         
+            if (schedule) {
+                forward.vectorize(x, vec_len);
+                forward.compute_root().fuse(z, n, par).parallel(par);
+            }
 
         }
 
@@ -573,7 +637,7 @@ class Flatten: public Layer {
         Var x, y, z, n;
         int out_width;
         int num_samples;
-        Flatten(Layer *in) : Layer(in) {
+        Flatten(Layer *in, int schedule = 1) : Layer(in) {
             assert(in->out_dims() >= 2 && in->out_dims() <= 4);
             num_samples = in_layer->out_dim_size(in_layer->out_dims() - 1);
             // Define forward
@@ -591,6 +655,10 @@ class Flatten: public Layer {
                 int c = in_layer->out_dim_size(2);
                 out_width = w * h * c;
                 forward(x, n) = in_layer->forward(x%w, (x/w)%h, x/(w*h), n);
+            }
+            // schedule 
+            if (schedule) {
+                forward.compute_root().parallel(n);
             }
 
         }
