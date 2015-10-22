@@ -438,16 +438,17 @@ class Convolutional: public Layer {
                 forward.update().reorder(x, y, r.z); 
                 forward.update().split(y, y, y_t, y_block_size);
                 forward.update().split(z, z, z_t, o_block_size);
-                forward.update().reorder(z_t, y);
-                forward.update().reorder(y_t, r.z, y, z); 
+                forward.update().reorder(y_t, z_t, y, r.z, z); 
                 forward.update().vectorize(x, vec_len);          
-                forward.update().fuse(z, n, par);
-                forward.update().fuse(y, par, par).parallel(par);
+                forward.update().fuse(z, n, par).parallel(par);
+                //forward.update().fuse(y, par, par).parallel(par);
+                forward.update().unroll(r.x);
+                forward.update().unroll(r.y);
                 // There are performance implications to this and seems to
                 // be incompatible with some schedules. Have to investigate
                 // this more closely.
                 //f_in_bound.compute_at(forward, n);
-                f_in_bound.compute_at(forward, par);
+                f_in_bound.compute_at(forward, z_t);
             }
 
         }

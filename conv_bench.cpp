@@ -8,8 +8,8 @@ int main(int argc, char **argv) {
     timeval t1, t2;
 
     int N = 16; // number of samples/batch_size
-    int d_w = 112; // data width
-    int d_h = 112; // data height
+    int d_w = 224; // data width
+    int d_h = 224; // data height
     int ch = 64; // number of channels
 
     Image<float> data(d_w, d_h, ch, N);
@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
                                                 d_layer->out_dim_size(2),
                                                 d_layer->out_dim_size(3));
 
-    int n_f = 128; // number of filters
+    int n_f = 64; // number of filters
     int f_w = 3;  // filter width
     int f_h = 3;  // filter height
     int pad = (f_w-1)/2; // padding required to handle boundaries
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
     // Blocked convolutional layer
     int i_block_size = 16;
     int o_block_size = 32;
-    int y_block = 16;
+    int y_block = 32;
     int num_blocks = ch/i_block_size;
     printf("num blocks = %d\n", num_blocks);
     Var i_B, o_B, x_t, y_t, z_t, z_in_t;
@@ -124,10 +124,29 @@ int main(int argc, char **argv) {
     RDom r(0, f_w, 0, f_h, 0, ch);
     
     f_simple(x, y, z, n) = b(z);
+    
     f_simple(x, y, z, n) += W(r.x, r.y, r.z, z) *
-                           f_in_bound(x*stride + r.x - pad,
-                                      y*stride + r.y - pad,
-                                      r.z, n);
+                           f_in_bound(x + r.x - pad,
+                                      y + r.y - pad,
+                                      r.z, n); 
+    /*
+    RDom r(0, f_h, 0, ch);
+    
+    f_simple(x, y, z, n) = b(z);
+    
+    f_simple(x, y, z, n) += W(0, r.x, r.y, z) *
+                           f_in_bound(x + 0 - pad,
+                                      y + r.x - pad,
+                                      r.y, n) +
+                           W(1, r.x, r.y, z) *
+                           f_in_bound(x + 1 - pad,
+                                   y + r.x - pad,
+                                   r.y, n) +
+                           W(2, r.x, r.y, z) *
+                           f_in_bound(x + 2 - pad,
+                                   y + r.x - pad,
+                                   r.y, n);                                    
+                                   */
 
     // Schedule
     int schedule = 2;
@@ -141,17 +160,19 @@ int main(int argc, char **argv) {
             break;
         case 2:
             // blocking spatially with vectorization
-            f_in_bound.compute_at(f_simple, par);
+            //f_in_bound.compute_at(f_simple, par);
+            f_in_bound.compute_at(f_simple, z_t);
             f_simple.compute_root();
             f_simple.fuse(z, n, par).parallel(par);
             f_simple.update().reorder(x, y, r.z); 
             f_simple.update().split(y, y, y_t, y_block);
             f_simple.update().split(z, z, z_t, o_block_size);
-            f_simple.update().reorder(z_t, y);
-            f_simple.update().reorder(y_t, r.z, y, z); 
+            f_simple.update().reorder(y_t, z_t, y, r.z, z); 
             f_simple.update().vectorize(x, vec_len);          
-            f_simple.update().fuse(z, n, par);
-            f_simple.update().fuse(y, par, par).parallel(par);
+            f_simple.update().unroll(r.x);          
+            f_simple.update().unroll(r.y);          
+            f_simple.update().fuse(z, n, par).parallel(par);
+            //f_simple.update().fuse(y, par, par).parallel(par);
             //f_simple.update().parallel(z);          
             break;
         case 3:

@@ -89,8 +89,6 @@ int main(int argc, char **argv) {
     int n_f_2 = 128;
     Convolutional * conv2_1  = new Convolutional(n_f_2, f_w, f_h, pad,
                                               stride, reg, pool1);
-    conv2_1->o_block_size = 32;
-    conv2_1->y_block_size = 8;
     network.push_back(conv2_1);
     printf("conv2_1 out size %d x %d x %d x %d\n", conv2_1->out_dim_size(0),
                                                    conv2_1->out_dim_size(1),
@@ -102,8 +100,6 @@ int main(int argc, char **argv) {
 
     Convolutional * conv2_2  = new Convolutional(n_f_2, f_w, f_h, pad,
                                               stride, reg, relu2_1);
-    conv2_2->o_block_size = 32;
-    conv2_2->y_block_size = 8;
     network.push_back(conv2_2);
     printf("conv2_2 out size %d x %d x %d x %d\n", conv2_2->out_dim_size(0),
                                                    conv2_2->out_dim_size(1),

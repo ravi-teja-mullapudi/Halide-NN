@@ -14,7 +14,7 @@ layers {
  }
  data_param {
     source: "/usr2/rmullapu/ilsvrc12_train_lmdb"
-    batch_size: 1
+    batch_size: 32
     backend: LMDB
   }
   top: "data"
